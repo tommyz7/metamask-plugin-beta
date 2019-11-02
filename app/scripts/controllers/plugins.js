@@ -119,6 +119,27 @@ class PluginsController extends EventEmitter {
   }
 
   /**
+   * Adds, authorizes, and runs plugins with a plugin provider.
+   */
+  processRequestedPlugins (pluginNames) {
+    Promise.all(pluginNames.map(async (pluginName) => {
+      await this.add(pluginName)
+      const plugin = await this.authorize(pluginName)
+      const { sourceCode, approvedPermissions } = plugin
+      const ethereumProvider = this.setupProvider(
+        pluginName, async () => { return {name: pluginName } }, true
+      )
+      await this.run(
+        pluginName, approvedPermissions, sourceCode, ethereumProvider
+      )
+    }))
+      .catch((err) => {
+        // TODO: figure out what to do with this error
+        console.error(`Error when adding plugin:`, err)
+      })
+  }
+
+  /**
    * Returns a promise representing the complete installation of the requested plugin.
    * If the plugin is already being installed, the previously pending promise will be returned.
    */

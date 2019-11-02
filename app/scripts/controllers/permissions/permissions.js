@@ -2,7 +2,7 @@ const JsonRpcEngine = require('json-rpc-engine')
 const asMiddleware = require('json-rpc-engine/src/asMiddleware')
 const createAsyncMiddleware = require('json-rpc-engine/src/createAsyncMiddleware')
 const ObservableStore = require('obs-store')
-const RpcCap = require('json-rpc-capabilities-middleware').CapabilitiesController
+const RpcCap = require('rpc-cap').CapabilitiesController
 const { errors: rpcErrors } = require('eth-json-rpc-errors')
 
 const {
@@ -170,31 +170,29 @@ class PermissionsController {
     // Load any requested plugins first:
     const pluginNames = this.pluginsFromPerms(approved.permissions)
     try {
-      await Promise.all(pluginNames.map((plugin) => {
-        return this.pluginsController.add(plugin)
-      }))
+
+      // listen for the result of the approved permissions request,
+      // and take further action upon permissions being granted
+      this.permissions.once(id, onRequestProcessed.bind(this))
 
       const resolve = approval.resolve
       resolve(approved.permissions)
       delete this.pendingApprovals[id]
 
-      // Once we've approved the initial app permissions,
-      // we are free to prompt for the plugin permissions:
-      Promise.all(pluginNames.map(async (pluginName) => {
-        const plugin = await this.pluginsController.authorize(pluginName)
-        const { sourceCode, approvedPermissions } = plugin
-        const ethereumProvider = this.pluginsController.setupProvider(pluginName, async () => { return {name: pluginName } }, true)
-        await this.pluginsController.run(pluginName, approvedPermissions, sourceCode, ethereumProvider)
-      }))
-        .catch((err) => {
-          // We swallow this error, we don't want the plugin permissions prompt to block the resolution
-          // Of the main dapp's permissions prompt.
-          console.error(`Error when adding plugin:`, err)
-        })
-
     } catch (reason) {
       const { reject } = approval
       reject(reason)
+    }
+
+    async function onRequestProcessed (result) {
+
+      if (result) {
+
+        // TODO: if the below call fails, should the permission for the plugin be removed?
+        // If the initial app permissions have been granted,
+        // we are free to prompt for the plugin permissions:
+        this.pluginsController.processRequestedPlugins(pluginNames)
+      }
     }
   }
 
