@@ -310,12 +310,14 @@ class PluginsController extends EventEmitter {
         wallet: ethereumProvider,
         console, // Adding console for now for logging purposes.
         BigInt,
+        setTimeout,
         window: {
           crypto,
           SubtleCrypto,
           fetch,
           XMLHttpRequest,
           WebSocket,
+          setTimeout
         },
         crypto,
         SubtleCrypto,
